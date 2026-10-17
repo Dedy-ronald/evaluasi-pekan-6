@@ -724,3 +724,189 @@ setelah transaksi kedua (TRX-002) karena saldoKas terakumulasi melewati target.
 • Transaksi TERAKHIR yang sempat diproses penuh pada percobaan kedua tersebut adalah: TRX-002.
 ===========================================================
 */
+
+/* 
+   ===========================================================
+   EVALUASI PEKAN 6 - BAGIAN 4: LAPORAN HARIAN
+   ===========================================================
+*/
+
+// Menghitung komponen data laporan harian
+let totalPendapatan = 0;
+let totalLunas = 0;
+let totalKurang = 0;
+let totalDitolak = 0;
+let maxTotal = 0;
+let trxTerbesar = null;
+const penjualanPerMenu = {};
+const daftarDitolak = [];
+const kodeLunas = [];
+
+for (const trx of kasir.riwayat) {
+    if (trx.status === "LUNAS") {
+        totalLunas++;
+        totalPendapatan += trx.total;
+        kodeLunas.push(trx.kode);
+
+        // Cari transaksi terbesar
+        if (trx.total > maxTotal) {
+            maxTotal = trx.total;
+            trxTerbesar = trx;
+        }
+
+        // Hitung penjualan per menu menggunakan bracket notation dan operator 'in'
+        for (const item of trx.itemValid) {
+            if (item.menu in penjualanPerMenu) {
+                penjualanPerMenu[item.menu] += item.jumlah;
+            } else {
+                penjualanPerMenu[item.menu] = item.jumlah;
+            }
+        }
+    } else if (trx.status === "KURANG") {
+        totalKurang++;
+    } else if (trx.status === "DITOLAK") {
+        totalDitolak++;
+        daftarDitolak.push({
+            kode: trx.kode,
+            alasan: trx.alasan
+        });
+    }
+}
+
+// Menghitung menu terlaris
+let menuTerlaris = "";
+let maxTerjual = 0;
+for (const menuName in penjualanPerMenu) {
+    if (penjualanPerMenu[menuName] > maxTerjual) {
+        maxTerjual = penjualanPerMenu[menuName];
+        menuTerlaris = menuName;
+    }
+}
+
+// Membuat ringkasan kode menggunakan perulangan dan +=
+let ringkasanKode = "";
+for (let i = 0; i < kodeLunas.length; i++) {
+    ringkasanKode += kodeLunas[i];
+    if (i !== kodeLunas.length - 1) {
+        ringkasanKode += ", ";
+    }
+}
+
+// Mencari menu yang stoknya menipis (< 3)
+const menuStokMenipis = [];
+for (const itemMenu of kasir.menu) {
+    if (itemMenu.stok < 3) {
+        menuStokMenipis.push(itemMenu.nama);
+    }
+}
+
+// Menyusun Master Object Laporan
+const laporan = {
+    jumlahTransaksi: kasir.riwayat.length,
+    jumlahLunas: totalLunas,
+    jumlahKurang: totalKurang,
+    jumlahDitolak: totalDitolak,
+    pendapatan: totalPendapatan,
+    rataRata: totalLunas > 0 ? Math.round(totalPendapatan / totalLunas) : 0,
+    transaksiTerbesar: trxTerbesar,
+    penjualanPerMenu: penjualanPerMenu,
+    menuTerlaris: menuTerlaris,
+    daftarDitolak: daftarDitolak,
+    kodeLunas: kodeLunas,
+    ringkasanKode: ringkasanKode,
+    menuStokMenipis: menuStokMenipis
+};
+
+// ===========================================================
+// PENCETAKAN LAPORAN KE CONSOLE
+// ===========================================================
+
+// 1. Judul menggunakan kapitalisasi dinamis kedai.nama
+const namaKedaiKapital = kedai.nama.toUpperCase();
+console.log("==========================================");
+console.log(`       LAPORAN HARIAN ${namaKedaiKapital}       `);
+console.log("==========================================");
+console.log(`Total Semua Transaksi : ${laporan.jumlahTransaksi}`);
+console.log(`  • Status Lunas      : ${laporan.jumlahLunas}`);
+console.log(`  • Status Kurang     : ${laporan.jumlahKurang}`);
+console.log(`  • Status Ditolak    : ${laporan.jumlahDitolak}`);
+console.log("------------------------------------------");
+console.log(`TOTAL PENDAPATAN      : ${formatRupiah(laporan.pendapatan)}`);
+console.log(`Rata-rata Per Lunas   : ${formatRupiah(laporan.rataRata)}`);
+console.log(`Menu Terlaris         : ${laporan.menuTerlaris}`);
+console.log(`Transaksi Terbesar    : ${laporan.transaksiTerbesar ? laporan.transaksiTerbesar.kode + " (" + formatRupiah(laporan.transaksiTerbesar.total) + ")" : "-"}`);
+console.log(`Menu Stok Menipis (<3): [${laporan.menuStokMenipis.join(", ")}]`);
+console.log("------------------------------------------");
+
+// 2. Isi penjualanPerMenu dicetak memakai for...in
+console.log("Rincian Kuantitas Penjualan Menu:");
+for (const keyMenu in laporan.penjualanPerMenu) {
+    console.log(`  • ${keyMenu}: ${laporan.penjualanPerMenu[keyMenu]} item`);
+}
+console.log("------------------------------------------");
+
+// 3. Hasil Object.keys dan Object.values dari penjualanPerMenu
+console.log("Daftar Nama Menu (Object.keys):", Object.keys(laporan.penjualanPerMenu));
+console.log("Daftar Angka Terjual (Object.values):", Object.values(laporan.penjualanPerMenu));
+console.log("------------------------------------------");
+
+// 4. Periksa kecocokan panjang ringkasanKode dengan jumlahLunas
+const panjangSplitKode = laporan.ringkasanKode.split(", ").length;
+const isCocok = panjangSplitKode === laporan.jumlahLunas;
+console.log(`Pengecekan Split Ringkasan Kode: ${panjangSplitKode} vs Jumlah Lunas: ${laporan.jumlahLunas}`);
+console.log(`Hasil Cocok? -> ${isCocok}`);
+console.log("------------------------------------------");
+
+// 5. Demo Array Method pada kodeLunas
+console.log("DEMO ARRAY METHOD:");
+const contohKodeCari = "TRX-001";
+console.log(`• includes("${contohKodeCari}") : ${laporan.kodeLunas.includes(contohKodeCari)}`);
+console.log(`• indexOf("${contohKodeCari}")  : Posisi indeks ke-${laporan.kodeLunas.indexOf(contohKodeCari)}`);
+console.log(`• slice(0, 2)          : [${laporan.kodeLunas.slice(0, 2).join(", ")}]`);
+
+// Membuat salinan dan mendemokan splice (mutasi)
+const salinanKodeLunas = laporan.kodeLunas.slice();
+const itemTerhapus = salinanKodeLunas.splice(0, 1);
+console.log(`• splice(0, 1) Salinan : Menghapus [${itemTerhapus}], Sisa salinan -> [${salinanKodeLunas.join(", ")}]`);
+console.log(`• Verifikasi Asli      : [${laporan.kodeLunas.join(", ")}] (Tidak Berubah)`);
+console.log("==========================================\n");
+
+
+/* 
+   ===========================================================
+   JAWABAN EVALUASI PERTANYAAN 4
+   ===========================================================
+
+   1. PEMILIHAN STRUKTUR DATA PENJUALANPERMENU
+      'penjualanPerMenu' dibuat sebagai object (bukan array) karena kita memerlukan pemetaan berbasis 
+      pasangan Kunci-Nilai (Key-Value) yang unik untuk mempermudah pencarian langsung nama menu. 
+      Penggunaan bracket notation 'penjualanPerMenu[item.menu]' wajib digunakan karena nama menu 
+      memiliki karakter spasi liar (seperti "Kopi Cinta Latte"). Jika kita memaksa memakai dot notation 
+      ('obj.Kopi Cinta Latte'), program akan memicu runtime syntax error.
+
+   2. PERBEDAAN OBJECT.KEYS DAN OBJECT.VALUES
+      - 'Object.keys': Mengembalikan array berupa kumpulan nama properti/kunci dari sebuah objek. 
+        Contoh di konsol: ["Kopi Galau Americano", "Kopi Cinta Latte", "Kentang Goreng Lucu", "Sweet Cinnamon Roll", "Kopi Rindu Espresso"]
+      - 'Object.values': Mengembalikan array berupa kumpulan isi/nilai properti dari objek tersebut.
+        Contoh di konsol: [2, 1, 1, 2, 1]
+
+   3. MUTABILITAS DAN EFEK SAMPING METHOD ARRAY
+      - Method yang MERUBAH (memutasi) array asli: 'splice()'.
+      - Method yang TIDAK MERUBAH array asli: 'includes()', 'indexOf()', dan 'slice()'.
+      Bukti di console menunjukkan bahwa array 'laporan.kodeLunas' tetap mempertahankan panjang 
+      dan elemen aslinya utuh secara konstan meskipun array 'salinanKodeLunas' telah terpotong 
+      setelah dikenakan perintah '.splice(0, 1)'.
+
+   4. KONSEKUENSI PENGGUNAAN TOFIXED PADA RATARATA
+      Fungsi '.toFixed()' secara inheren mengembalikan tipe data String. Jika kita tidak mengubahnya 
+      kembali menjadi Number (atau menggunakan Math.round seperti di atas), nilai tersebut akan berupa teks. 
+      Jika nilai rata-rata ini digunakan kembali dalam komputasi keuangan berikutnya, alih-alih menjumlah, 
+      JavaScript akan melakukan penggabungan string (konkatenasi) yang merusak akurasi perhitungan matematis.
+
+   5. ANALISIS HASIL PENGECEKAN SPLIT RINGKASAN KODE
+      Hasil pengecekan bernilai 'true'. Hal ini terjadi karena manipulasi pemisahan tanda koma dan 
+      spasi (", ") menggunakan fungsi '.split(", ")' memecah string tunggal tersebut kembali menjadi 
+      sebuah array baru yang berisi elemen kode transaksi terpisah. Karena setiap kode transaksi lunas 
+      dimasukkan satu kali secara konsisten, maka ukuran panjang array baru hasil pecahan tersebut akan 
+      selalu bernilai sama persis dengan angka properti total 'jumlahLunas'.
+*/
