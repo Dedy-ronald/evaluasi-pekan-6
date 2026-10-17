@@ -214,4 +214,44 @@ if ("0") { console.log('"0" adalah TRUTHY'); }
 if ([])  { console.log('[] adalah TRUTHY'); }
 if ({})  { console.log('{} adalah TRUTHY'); }
 
+/* 
+   ===========================================================
+   JAWABAN EVALUASI PERTANYAAN 7.3
+   ===========================================================
 
+   1. URUTAN PRESEDENSI OPERATOR KASUS "10" + 5 * 2
+      JavaScript mendahulukan operator perkalian '*' karena tingkat presedensinya lebih tinggi daripada 
+      operator penjumlahan '+'. Langkah kalkulasinya: 5 * 2 = 10. 
+      Setelah itu, string "10" dijumlahkan dengan angka 10. Karena salah satu operan bertipe string, 
+      JavaScript secara otomatis melakukan konversi paksa (coercion) menjadi operasi penggabungan teks 
+      (konkatenasi), menghasilkan string baru "1010".
+
+   2. MEKANISME REFERENSI MEMORI SLICE VS SPLICE PADA ARRAY ANGKA
+      Nilai isi variabel 'potongan' dan 'hapus' bisa bernilai sama karena keduanya kebetulan mengekstrak 
+      rentang elemen yang identik dari indeks ke-1 sebanyak 2 item. Namun, efeknya pada 'angka' berbeda 
+      karena '.slice()' bekerja secara imutabel (hanya menyalin duplikat tanpa menyentuh array asal), 
+      sedangkan '.splice()' bekerja secara mutabel dengan memotong dan membuang elemen asli dari 
+      alamat memori fisik array 'angka' tersebut.
+
+   3. ASAL USUL LOG UNDEFINED PADA METHOD CETAK
+      Dua baris log muncul karena ada dua lapis pemanggilan perintah cetak:
+      - Baris Pertama (Angka 8): Muncul ketika fungsi `cetak(4)` dieksekusi, menjalankan baris internal 
+        `console.log(4 * 2)`.
+      - Baris Kedua (undefined): Muncul karena `console.log(cetak(4))` mencoba mencetak nilai kembalian 
+        (*return value*) dari fungsi `cetak`. Karena fungsi `cetak` tidak memiliki keyword `return`, 
+        secara otomatis fungsi tersebut mengembalikan nilai default bawaan JavaScript, yaitu `undefined`.
+
+   4. ALUR TRACING PERULANGAN i HINGGA MENGHASILKAN "134"
+      - Putaran i = 1: Lolos cek, masuk ke blok `hasil += 1`. Variabel hasil = "1".
+      - Putaran i = 2: Memicu `if (i === 2) { continue; }`. Sisa perintah di bawah dilewati, langsung lompat ke putaran berikutnya.
+      - Putaran i = 3: Lolos cek, masuk ke blok `hasil += 3`. Variabel hasil = "13".
+      - Putaran i = 4: Lolos cek, masuk ke blok `hasil += 4`. Variabel hasil = "134".
+      - Putaran i = 5: Memicu `if (i === 5) { break; }`. Perulangan dihentikan paksa dan langsung keluar dari blok loop.
+      Sehingga nilai akhir variabel hasil yang dicetak adalah "134".
+
+   5. KARAKTERISTIK STRUKTUR PERULANGAN DO...WHILE
+      Struktur perulangan 'do...while' memiliki karakteristik yang bersifat "eksekusi dahulu, evaluasi belakangan". 
+      Blok kode di dalam kurung kurawal 'do' dijamin akan selalu dijalankan minimal satu kali di awal 
+      tanpa mempedulikan status kebenaran kondisi terminasinya. Pemeriksaan kondisi logika `x < 3` baru 
+      akan dievaluasi di akhir setelah perintah `x += 5` selesai diproses pertama kali.
+*/
