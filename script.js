@@ -407,3 +407,320 @@ console.log(JSON.stringify(transaksiBersih, null, 2));
         Dipilih karena sintaksisnya yang sangat pendek, ringkas, dan modern. Sangat cocok untuk 
         fungsi spesifik yang langsung mengembalikan nilai secara cepat (*return* langsung).
 */
+
+/* 
+   ===========================================================
+   EVALUASI PEKAN 6 - BAGIAN 3: MESIN KASIR (PERBAIKAN)
+   ===========================================================
+*/
+
+const kasir = {
+    menu: menu, // Mengambil data array menu dari bagian sebelumnya
+    saldoKas: 0,
+    riwayat: [],
+    pecahan: [50000, 20000, 10000, 5000, 2000, 1000], // PERBAIKAN: Array pecahan sudah diisi penuh
+
+    // 1. Method mencari menu menggunakan for...of
+    cariMenu(nama) {
+        for (const itemMenu of this.menu) {
+            if (itemMenu.nama.toLowerCase() === nama.toLowerCase()) {
+                return itemMenu;
+            }
+        }
+        return null;
+    },
+
+    // 2. Method menghitung subtotal dan memilah item valid/tidak valid
+    hitungSubtotal(pesanan) {
+        let subtotal = 0;
+        const itemValid = [];
+        const itemTidakValid = [];
+
+        for (const item of pesanan) {
+            const dataMenu = this.cariMenu(item.menu);
+
+            if (!dataMenu) {
+                itemTidakValid.push({ menu: item.menu, alasan: "Menu tidak terdaftar" });
+                continue;
+            }
+            if (item.jumlah <= 0) {
+                itemTidakValid.push({ menu: item.menu, alasan: "Jumlah pesanan tidak valid" });
+                continue;
+            }
+            if (dataMenu.stok < item.jumlah) {
+                itemTidakValid.push({ menu: item.menu, alasan: `Stok tidak cukup (Sisa: ${dataMenu.stok})` });
+                continue;
+            }
+
+            const hargaItem = dataMenu.harga;
+            const subTotalItem = hargaItem * item.jumlah;
+
+            itemValid.push({
+                menu: dataMenu.nama,
+                jumlah: item.jumlah,
+                harga: hargaItem
+            });
+
+            subtotal += subTotalItem;
+        }
+
+        return { subtotal, itemValid, itemTidakValid };
+    },
+
+    // 3. Method menghitung potongan promo hari menggunakan switch
+    hitungPromoHari(hari) {
+        switch (hari.toLowerCase()) {
+            case "jumat":
+                return 3000;
+            case "sabtu":
+            case "minggu":
+                return 5000; // Menggabungkan case sabtu dan minggu tanpa break di antaranya
+            default:
+                return 0;
+        }
+    },
+
+    // 4. Method menghitung diskon berdasarkan subtotal global vs voucher
+    hitungDiskon(subtotal, persenVoucher) {
+        let persenSubtotal = 0;
+
+        if (subtotal >= 100000) {
+            persenSubtotal = 15;
+        } else if (subtotal >= 50000) {
+            persenSubtotal = 10;
+        } else if (subtotal >= 25000) {
+            persenSubtotal = 5;
+        } else {
+            persenSubtotal = 0;
+        }
+
+        const persenFinal = Math.max(persenSubtotal, persenVoucher) / 100;
+        return Math.round(subtotal * persenFinal);
+    },
+
+    // 5. Method menghitung pajak 11%
+    hitungPajak(nilai, tarif = 0.11) {
+        return Math.round(nilai * tarif);
+    },
+
+    // 6. Method memecah kembalian menjadi pecahan lembaran uang tunai
+    hitungKembalianPecahan(kembalian) {
+        if (kembalian < 0) return null;
+
+        const hasilPecahan = {};
+        let sisaUang = kembalian;
+
+        for (const lembarPecahan of this.pecahan) {
+            let jumlahLembar = 0;
+            while (sisaUang >= lembarPecahan) {
+                jumlahLembar++;
+                sisaUang -= lembarPecahan;
+            }
+            if (jumlahLembar > 0) {
+                hasilPecahan[String(lembarPecahan)] = jumlahLembar; // Bracket notation
+            }
+        }
+
+        hasilPecahan.sisa = sisaUang;
+        return hasilPecahan;
+    },
+
+    // 7. Logika utama pemrosesan satu transaksi lengkap
+    prosesTransaksi(trx) {
+        // Aturan 1: Validasi awal berbasis Truthy/Falsy
+        if (!trx.pelanggan || trx.pelanggan.trim() === "") {
+            const rejected = { kode: trx.kode, pelanggan: trx.pelanggan, status: "DITOLAK", alasan: "Nama pelanggan kosong" };
+            this.riwayat.push(rejected);
+            return rejected;
+        }
+        if (!trx.pesanan || !trx.pesanan.length) {
+            const rejected = { kode: trx.kode, pelanggan: trx.pelanggan, status: "DITOLAK", alasan: "Pesanan kosong" };
+            this.riwayat.push(rejected);
+            return rejected;
+        }
+
+        // Jalankan perhitungan subtotal item
+        const kalkulasiItem = this.hitungSubtotal(trx.pesanan);
+
+        if (kalkulasiItem.itemValid.length === 0) {
+            const rejected = { kode: trx.kode, pelanggan: trx.pelanggan, status: "DITOLAK", alasan: "Tidak ada item valid" };
+            this.riwayat.push(rejected);
+            return rejected;
+        }
+
+        // Aturan 2: Perhitungan matematis nominal belanja
+        const subtotal = kalkulasiItem.subtotal;
+        const promoHari = this.hitungPromoHari(trx.hari);
+        const diskon = this.hitungDiskon(subtotal, trx.persenVoucher);
+        
+        let nilaiSetelahDiskon = subtotal - diskon - promoHari;
+        if (nilaiSetelahDiskon < 0) nilaiSetelahDiskon = 0; // Tidak boleh di bawah 0
+
+        const pajak = this.hitungPajak(nilaiSetelahDiskon);
+        const total = nilaiSetelahDiskon + pajak;
+        const kembalian = trx.uangBayar - total;
+
+        // Aturan 3: Penentuan status pembayaran
+        const status = kembalian >= 0 ? "LUNAS" : "KURANG";
+        let pecahanKembalian = null;
+
+        // Aturan 4: Jika LUNAS, kurangi persediaan toko dan tambah kas masuk
+        if (status === "LUNAS") {
+            this.saldoKas += total;
+            pecahanKembalian = this.hitungKembalianPecahan(kembalian);
+
+            // Pengurangan stok aktual menu terjual
+            for (const item of kalkulasiItem.itemValid) {
+                const menuAsli = this.cariMenu(item.menu);
+                if (menuAsli) menuAsli.stok -= item.jumlah;
+            }
+        }
+
+        // Aturan 5: Susun nota akhir lengkap dan simpan ke riwayat
+        const notaLengkap = {
+            kode: trx.kode,
+            pelanggan: trx.pelanggan,
+            status,
+            subtotal,
+            promoHari,
+            diskon,
+            pajak,
+            total,
+            uangBayar: trx.uangBayar,
+            kembalian,
+            pecahanKembalian,
+            itemValid: kalkulasiItem.itemValid,
+            itemTidakValid: kalkulasiItem.itemTidakValid
+        };
+
+        this.riwayat.push(notaLengkap);
+        return notaLengkap;
+    },
+
+    // 8. Method pencetakan visual struk belanja ke console
+    cetakStruk(hasil) {
+        console.log("\n==========================================");
+        console.log(`         STRUK BELANJA - ${hasil.kode}        `);
+        console.log("==========================================");
+        console.log(`Pelanggan : ${hasil.pelanggan}`);
+        
+        if (hasil.status === "DITOLAK") {
+            console.log(`STATUS    : DITOLAK ❌`);
+            console.log(`Alasan    : ${hasil.alasan}`);
+            console.log("==========================================\n");
+            return;
+        }
+
+        console.log(`Status    : ${hasil.status} ✅`);
+        console.log("------------------------------------------");
+        console.log("Item Belanja Valid:");
+        hasil.itemValid.forEach((item, index) => {
+            console.log(`  ${index + 1}. ${item.menu} x${item.jumlah} (${formatRupiah(item.harga)})`);
+        });
+
+        if (hasil.itemTidakValid && hasil.itemTidakValid.length > 0) {
+            console.log("------------------------------------------");
+            console.log("Item Tidak Valid (Gagal Diproses):");
+            hasil.itemTidakValid.forEach(item => {
+                console.log(`  • ${item.menu} (${item.alasan})`);
+            });
+        }
+
+        console.log("------------------------------------------");
+        console.log(`Subtotal          : ${formatRupiah(hasil.subtotal)}`);
+        console.log(`Promo Hari        : -${formatRupiah(hasil.promoHari)}`);
+        console.log(`Diskon Anggota/Vrc: -${formatRupiah(hasil.diskon)}`);
+        console.log(`Pajak (11%)       : ${formatRupiah(hasil.pajak)}`);
+        console.log("------------------------------------------");
+        console.log(`TOTAL TAGIHAN     : ${formatRupiah(hasil.total)}`);
+        console.log(`Uang Dibayarkan   : ${formatRupiah(hasil.uangBayar)}`);
+        console.log(`Kembalian Uang    : ${formatRupiah(Math.max(0, hasil.kembalian))}`);
+        
+        if (hasil.status === "KURANG") {
+            console.log(`Kekurangan Uang   : ${formatRupiah(Math.abs(hasil.kembalian))}`);
+        }
+
+        if (hasil.pecahanKembalian && hasil.status === "LUNAS") {
+            console.log("------------------------------------------");
+            console.log("Rincian Pecahan Uang Kembalian:");
+            for (const [key, value] of Object.entries(hasil.pecahanKembalian)) {
+                if (key === "sisa") {
+                    console.log(`  Uang Koin Logam/Sisa: ${formatRupiah(value)}`);
+                } else {
+                    console.log(`  Lembar ${formatRupiah(Number(key))} : ${value} lembar`);
+                }
+            }
+        }
+        console.log("==========================================\n");
+    }
+};
+
+// ===========================================================
+// EKSEKUSI PEMROSESAN SELURUH DAFTAR TRANSAKSI
+// ===========================================================
+
+// Pengaturan Target Kas (Sesuai Aturan: Kembalikan ke nilai besar agar semua terproses)
+const TARGET_KAS = 1000000; 
+
+console.log("=== MEMULAI PROSES MESIN KASIR ===");
+for (const trx of transaksiBersih) { // PERBAIKAN: Mengganti kata 'dari' menjadi keyword valid 'of'
+    const hasilNota = kasir.prosesTransaksi(trx);
+    kasir.cetakStruk(hasilNota);
+
+    if (kasir.saldoKas >= TARGET_KAS) {
+        console.log(`>>> Target kas sebesar ${formatRupiah(TARGET_KAS)} tercapai! <<<`);
+        break;
+    }
+}
+
+console.log("--- SALDO KAS AKHIR TOKO ---");
+console.log(`Total Saldo di Dompet Kasir: ${formatRupiah(kasir.saldoKas)}`);
+
+/* 
+
+===========================================================
+JAWABAN EVALUASI PERTANYAAN 3
+
+1. REFENSI KEYWORD 'THIS'
+Di dalam method object, kita menulis 'this.menu' (bukan langsung 'menu') agar Javascript
+tahu bahwa kita ingin mengambil properti 'menu' yang terikat di dalam ruang lingkup (scope)
+objek 'kasir' itu sendiri. Keyword 'this' di sini merujuk langsung ke objek penampungnya,
+yaitu instansiasi variabel 'kasir'.
+2. EFEKTIVITAS SWITCH CASE PADA PROMO HARI
+Fungsi 'hitungPromoHari' lebih cocok memakai 'switch' karena melakukan pencocokan nilai
+tunggal string yang bersifat pasti secara vertikal (evaluasi nilai pasti variabel 'hari').
+Sengaja tidak ditulis 'break' di antara case "sabtu" dan case "minggu" memanfaatkan fitur
+"fall-through". Hasilnya tetap benar karena jika hari bernilai "sabtu", kode akan langsung
+merosot ke bawah mengeksekusi baris 'return 5000' milik "minggu".
+3. EVALUASI TRUTHY/FALSY PADA ARRAY
+Kondisi '!trx.pesanan.length' dapat digunakan karena jika array kosong, properti '.length'
+bernilai angka '0' (yang secara bawaan bernilai Falsy). Menggunakan negasi tanda seru '!0'
+akan mengubahnya menjadi boolean 'true', sehingga blok kode 'if' dijalankan.
+3 Nilai lain yang dianggap Falsy di JavaScript: 'false', 'null', 'undefined', '""' (string kosong), dan 'NaN'.
+4. PERBEDAAN BREAK DAN CONTINUE
+	• 'continue' (Digunakan pada 'hitungSubtotal'): Menghentikan sisa eksekusi iterasi saat ini
+dan langsung melompat maju ke putaran perulangan item berikutnya di dalam loop.
+	• 'break' (Digunakan pada perulangan TARGET_KAS): Menghentikan seluruh proses perulangan
+secara paksa saat itu juga keluar dari kurung kurawal block loop.
+5. RETURN MULTI-ATTRIBUTE OBJECT PADA SUBTOTAL
+Fungsi 'hitungSubtotal' mengembalikan objek kompleks karena mesin kasir membutuhkan informasi
+yang jauh lebih kaya daripada sekadar angka nominal uang (seperti memisahkan daftar nama makanan
+yang lolos validasi untuk dicetak di nota, beserta teks penolakan error untuk dilaporkan ke pembeli).
+6. METODE PECAHAN KEMBALIAN (WHILE VS MATEMATIKA)
+Penggunaan 'while' di dalam 'for...of' bertujuan untuk mensimulasikan pengurangan lembaran fisik
+secara berulang.
+Logika ini BISA diganti dengan operasi pembagian '/' (untuk mendapat lembar menggunakan Math.floor)
+dan modulus '%' (untuk mendapat sisa uang).
+Formulasi alternatif:
+jumlahLembar = Math.floor(sisaUang / lembarPecahan);
+sisaUang = sisaUang % lembarPecahan;
+Pendekatan matematika pembagian ini jauh lebih efisien secara performa komputasi dibanding loop while.
+
+===========================================================
+PERCOBAAN JALAN KEDUA DENGAN TARGET_KAS KECIL (CATATAN DOKUMENTASI):
+
+• Saat dicoba dengan TARGET_KAS kecil (misal: Rp50.000), perulangan langsung berhenti
+setelah transaksi kedua (TRX-002) karena saldoKas terakumulasi melewati target.
+• Transaksi TERAKHIR yang sempat diproses penuh pada percobaan kedua tersebut adalah: TRX-002.
+===========================================================
+*/
