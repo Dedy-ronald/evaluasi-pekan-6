@@ -224,3 +224,88 @@ console.table(menu);
 // Variabel riwayatNota menampung seluruh array objek transaksi yang telah dibersihkan datanya dan dihitung secara matematis.
 // Pemanggilan console.log memaparkan struktur nota lengkap secara mendalam untuk memvalidasi status kelulusan pembayaran masing-masing pelanggan.
 // Perintah console.table digunakan di akhir untuk melacak perubahan sisa persediaan produk di gudang setelah terpotong pesanan yang valid.
+
+/* 
+   ===========================================================
+   EVALUASI PEKAN 6 - BAGIAN 2.2: FUNCTION PEMBERSIH DATA
+   ===========================================================
+*/
+
+// 1. Function Declaration: bersihkanNama
+// Membersihkan spasi liar di awal/akhir, merapikan spasi ganda, dan mengubah ke Title Case
+function bersihkanNama(teks) {
+    if (!teks || teks.trim() === "") return "";
+    return teks
+        .trim()
+        .toLowerCase()
+        .split(" ")
+        .filter(kata => kata.length > 0) // Menghilangkan spasi ganda di antara kata
+        .map(kata => kata.charAt(0).toUpperCase() + kata.slice(1))
+        .join(" ");
+}
+
+// 2. Function Expression: ubahKeAngka
+// Menghapus titik pemisah ribuan/spasi, lalu mengubah menjadi angka valid atau 0
+const ubahKeAngka = function(teks) {
+    if (typeof teks !== "string") return 0;
+    const angkaBersih = Number(teks.replace(/[\.\s]/g, ""));
+    return isNaN(angkaBersih) ? 0 : angkaBersih;
+};
+
+// 3. Arrow Function: ambilPersenVoucher
+// Mengecek awalan "DISKON", mengambil angka di belakangnya, mengembalikan 0 jika tidak valid
+const ambilPersenVoucher = (kode) => {
+    if (!kode) return 0;
+    const kodeBersih = kode.trim().toUpperCase();
+    
+    if (kodeBersih.startsWith("DISKON")) {
+        const angkaTeks = kodeBersih.replace("DISKON", "");
+        const angka = Number(angkaTeks);
+        return isNaN(angka) || angkaTeks === "" ? 0 : angka;
+    }
+    return 0;
+};
+
+// 4. Arrow Function: formatRupiah
+// Memformat angka menjadi format mata uang dengan titik tanpa toLocaleString
+const formatRupiah = (angka) => {
+    const angkaString = String(Math.floor(Math.abs(angka)));
+    let hasilSisa = "";
+    let hitung = 0;
+
+    // Loop terbalik untuk menyisipkan titik setiap 3 digit
+    for (let i = angkaString.length - 1; i >= 0; i--) {
+        hitung++;
+        hasilSisa = angkaString[i] + hasilSisa;
+        if (hitung % 3 === 0 && i !== 0) {
+            hasilSisa = "." + hasilSisa;
+        }
+    }
+    return `Rp ${hasilSisa}`;
+};
+
+// ===========================================================
+// UJI COBA KASUS (MINIMAL 3 KASUS PER FUNCTION)
+// ===========================================================
+
+console.log("=== UJI COBA FUNCTION PEMBERSIH DATA ===\n");
+
+console.log("--- Pengujian bersihkanNama ---");
+console.log(`"  rina   WULANDARI " -> "${bersihkanNama("  rina   WULANDARI ")}"`);
+console.log(`"    muhammad    dedy  " -> "${bersihkanNama("    muhammad    dedy  ")}"`);
+console.log(`""                      -> "${bersihkanNama("")}"`);
+
+console.log("\n--- Pengujian ubahKeAngka ---");
+console.log(`"150.000" -> ${ubahKeAngka("150.000")}`);
+console.log(`"75000"   -> ${ubahKeAngka("75000")}`);
+console.log(`"abc"     -> ${ubahKeAngka("abc")}`);
+
+console.log("\n--- Pengujian ambilPersenVoucher ---");
+console.log(`" diskon10 " -> ${ambilPersenVoucher(" diskon10 ")}`);
+console.log(`"PROMO5"     -> ${ambilPersenVoucher("PROMO5")}`);
+console.log(`""           -> ${ambilPersenVoucher("")}`);
+
+console.log("\n--- Pengujian formatRupiah ---");
+console.log(`1250000 -> "${formatRupiah(1250000)}"`);
+console.log(`500     -> "${formatRupiah(500)}"`);
+console.log(`0       -> "${formatRupiah(0)}"`);
