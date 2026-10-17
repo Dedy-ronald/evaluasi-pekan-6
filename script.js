@@ -309,3 +309,101 @@ console.log("\n--- Pengujian formatRupiah ---");
 console.log(`1250000 -> "${formatRupiah(1250000)}"`);
 console.log(`500     -> "${formatRupiah(500)}"`);
 console.log(`0       -> "${formatRupiah(0)}"`);
+
+/* 
+   ===========================================================
+   EVALUASI PEKAN 6 - BAGIAN 2.3: DATA BERSIH
+   ===========================================================
+*/
+
+// Array transaksiBersih yang menampung data hasil pembersihan
+const transaksiBersih = [];
+
+// Proses pembersihan data mentah menggunakan perulangan for...of dan push
+for (const trx of transaksiMentah) {
+    const pesananBersih = [];
+    
+    // Iterasi untuk membersihkan item di dalam pesanan
+    for (const item of trx.pesanan) {
+        pesananBersih.push({
+            menu: bersihkanNama(item.menu),
+            jumlah: Number(item.jumlah)
+        });
+    }
+
+    // Memasukkan objek transaksi yang sudah bersih ke array utama
+    transaksiBersih.push({
+        kode: trx.kode.trim().toUpperCase(),
+        pelanggan: bersihkanNama(trx.pelanggan),
+        hari: trx.hari.trim().toLowerCase(),
+        uangBayar: ubahKeAngka(trx.uangBayar),
+        persenVoucher: ambilPersenVoucher(trx.voucher),
+        pesanan: pesananBersih
+    });
+}
+
+// Mencetak hasil array transaksiBersih ke console
+console.log("=== HASIL ARRAY TRANSAKSI BERSIH ===");
+console.log(JSON.stringify(transaksiBersih, null, 2));
+
+
+/* 
+   ===========================================================
+   JAWABAN EVALUASI PERTANYAAN 2.3
+   ===========================================================
+
+   1. PERBEDAAN PARSEINT, PARSEFLOAT, DAN NUMBER
+      - 'parseInt': Mengonversi string menjadi bilangan bulat (integer). Berhenti membaca 
+        karakter begitu menemukan karakter non-angka (seperti titik atau huruf).
+      - 'parseFloat': Mengonversi string menjadi bilangan desimal (floating-point). 
+        Mengizinkan satu tanda titik sebagai penanda desimal.
+      - 'Number': Mengonversi seluruh isi string secara ketat menjadi angka. Jika ada satu saja 
+        karakter non-angka yang tidak valid (selain titik desimal yang sah), hasilnya 'NaN'.
+      
+      Kenapa 'ubahKeAngka' harus menghapus titik terlebih dahulu?
+      Karena dalam standar internasional JavaScript, tanda titik '.' dianggap sebagai pembatas desimal, 
+      bukan pemisah ribuan. Jika titik ribuan tidak dihapus, 'Number' atau 'parseInt' akan salah membaca nilai.
+      
+      Apa hasil 'parseInt("150.000")'?
+      Hasilnya adalah 150. Karena 'parseInt' berhenti membaca string tepat saat menemui karakter 
+      titik pertama, sehingga karakter ".000" di belakangnya dibuang.
+
+   2. ANALISIS TOFIXED
+      Fungsi 'toFixed' mengembalikan tipe data STRING (teks), bukan angka.
+      
+      Bukti dengan typeof:
+      console.log(typeof (15000).toFixed(2)); // Output: "string"
+      
+      Akibat jika hasil 'toFixed' langsung dijumlahkan dengan angka:
+      Akan terjadi operasi konkatenasi (penggabungan teks), bukan penjumlahan matematika.
+      Contoh: Jika (50).toFixed(0) yang menghasilkan "50" dijumlahkan dengan angka 5 (+ 5), 
+      hasil akhirnya adalah string "505", bukan angka 55.
+
+   3. PERBEDAAN REPLACE DAN REPLACEALL
+      - 'replace': Hanya mengganti satu karakter atau kecocokan pertama yang ditemukan di dalam string.
+      - 'replaceAll': Mengganti seluruh karakter atau kecocokan yang ditemukan di sepanjang string tanpa sisa.
+      
+      Tempat yang memerlukan di dalam kode:
+      Di dalam fungsi 'ubahKeAngka', jika input berupa "1.500.000" (memiliki dua buah titik), 
+      penggunaan 'replace(/\./g, "")' dengan regex global atau 'replaceAll(".", "")' sangat diperlukan 
+      agar semua titik pemisah ribuan terhapus sepenuhnya. Jika hanya menggunakan teks biasa di 'replace(".", "")', 
+      maka hanya titik pertama yang hilang dan menghasilkan "1500.000" (masih menyisakan titik kedua).
+
+   4. IMMUTABILITY STRING (KODE.TOUPPERCASE())
+      Isi variabel 'kode' yang asli tidak berubah karena tipe data String di JavaScript bersifat 
+      'immutable' (tidak dapat diubah nilainya setelah dibuat). 
+      Metode '.toUpperCase()' tidak memodifikasi string asli di tempatnya, melainkan memproses 
+      dan mengembalikan sebuah string baru. Oleh karena itu, kita harus menampung hasilnya ke 
+      variabel baru atau langsung memasukkannya ke properti objek.
+
+   5. PENJELASAN PILIHAN BENTUK STRUKTUR FUNGSI DI DALAM KODE
+      - Function Declaration ('bersihkanNama'):
+        Dipilih karena memiliki sifat 'hoisting' (dapat dipanggil di baris kode mana pun sebelum 
+        fungsi itu ditulis). Bentuk ini sangat ideal untuk fungsi utilitas umum.
+      - Function Expression ('ubahKeAngka'):
+        Dipilih untuk memastikan fungsi diperlakukan sebagai variabel konstan ('const') agar 
+        logikanya aman dan tidak sengaja tertimpa oleh kode lain di bawahnya selama program berjalan.
+      - Arrow Function ('ambilPersenVoucher' / 'formatRupiah'):
+        Dipilih karena sintaksisnya yang sangat pendek, ringkas, dan modern. Sangat cocok untuk 
+        fungsi spesifik yang langsung mengembalikan nilai secara cepat (*return* langsung).
+*/
